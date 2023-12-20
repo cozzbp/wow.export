@@ -4,6 +4,7 @@
 	License: MIT
  */
 const core = require('../core');
+const fs = require('fs');
 const listfile = require('../casc/listfile');
 const MultiMap = require('../MultiMap');
 
@@ -12,6 +13,9 @@ const DBTextureFileData = require('../db/caches/DBTextureFileData');
 
 const WDCReader = require('../db/WDCReader');
 const ItemSlot = require('../wow/ItemSlot');
+
+const M2Loader = require('../3D/loaders/M2Loader');
+const BLPFile = require('../casc/blp');
 
 const ITEM_SLOTS_IGNORED = [0, 18, 11, 12, 24, 25, 27, 28];
 
@@ -100,7 +104,7 @@ const viewItemModels = (item) => {
 
 	// Reset the user filter for models.
 	core.view.userInputFilterModels = '';
-	
+
 	core.view.overrideModelList = [...list];
 	core.view.selectionModels = [...list];
 	core.view.overrideModelName = item.name;
@@ -129,7 +133,7 @@ const viewItemTextures = (item) => {
 
 	// Reset the user filter for textures.
 	core.view.userInputFilterTextures = '';
-	
+
 	core.view.overrideTextureList = [...list];
 	core.view.selectionTextures = [...list];
 	core.view.overrideTextureName = item.name;
@@ -145,25 +149,38 @@ core.events.once('screen-tab-items', async () => {
 	const itemSparse = new WDCReader('DBFilesClient/ItemSparse.db2');
 	await itemSparse.parse();
 
+	console.log(itemSparse)
+
 	await progress.step('Loading item display info...');
 	const itemDisplayInfo = new WDCReader('DBFilesClient/ItemDisplayInfo.db2');
 	await itemDisplayInfo.parse();
+
+	console.log(itemDisplayInfo)
 
 	await progress.step('Loading item appearances...');
 	const itemModifiedAppearance = new WDCReader('DBFilesClient/ItemModifiedAppearance.db2');
 	await itemModifiedAppearance.parse();
 
+	console.log(itemModifiedAppearance)
+
 	await progress.step('Loading item materials...');
 	const itemDisplayInfoMaterialRes = new WDCReader('DBFilesClient/ItemDisplayInfoMaterialRes.db2');
 	await itemDisplayInfoMaterialRes.parse();
 
+	console.log(itemDisplayInfoMaterialRes)
+
 	const itemAppearance = new WDCReader('DBFilesClient/ItemAppearance.db2');
 	await itemAppearance.parse();
+
+	console.log(itemAppearance)
+
 
 	await progress.step('Building item relationships...');
 
 	const rows = itemSparse.getAllRows();
 	const items = [];
+
+	const exportItems = [];
 
 	const appearanceMap = new Map();
 	for (const row of itemModifiedAppearance.getAllRows().values())
@@ -182,6 +199,9 @@ core.events.once('screen-tab-items', async () => {
 
 		let materials = null;
 		let models = null;
+		let modelData;
+		let textureData;
+		let displayInfo;
 		if (itemAppearanceRow !== null) {
 			materials = [];
 			models = [];
@@ -190,6 +210,7 @@ core.events.once('screen-tab-items', async () => {
 			if (itemDisplayInfoRow !== null) {
 				materials.push(...itemDisplayInfoRow.ModelMaterialResourcesID);
 				models.push(...itemDisplayInfoRow.ModelResourcesID);
+				displayInfo = itemDisplayInfoRow
 			}
 
 			const materialRes = materialMap.get(itemAppearanceRow.ItemDisplayInfoID);
@@ -198,10 +219,133 @@ core.events.once('screen-tab-items', async () => {
 
 			materials = materials.filter(e => e !== 0);
 			models = models.filter(e => e !== 0);
+
+
+			const modelList = {}
+			for (const modelID of models) {
+				const fileDataIDs = DBModelFileData.getModelFileDataID(modelID);
+				for (const fileDataID of fileDataIDs) {
+					let entry = listfile.getByID(fileDataID);
+
+					const file = await core.view.casc.getFile(fileDataID);
+					let m2 = new M2Loader(file);
+					await m2.load();
+					if (entry !== undefined) {
+						if (core.view.config.listfileShowFileDataIDs)
+							entry += ' [' + fileDataID + ']';
+
+						let skins = []
+
+						for (let i = 0; i < m2.skins.length; i++) {
+							const skin = await m2.getSkin(i)
+							skins.push(skin)
+						}
+
+						console.log('skins', skins)
+
+						//need to parse out textures here
+
+						let textures = []
+						for (let i = 0; i < m2.textures.length; i++) {
+							const texture = m2.textures[i]
+							if(!texture?.fileDataID) continue
+							let entry = listfile.getByID(texture.fileDataID);
+
+							const file = await core.view.casc.getFile(texture.fileDataID);
+							let tex = new BLPFile(file)
+							let png = tex.toPNG();
+							let base64 = png.toBase64();
+							if (entry !== undefined) {
+								if (core.view.config.listfileShowFileDataIDs)
+									entry += ' [' + texture?.fileDataID + ']';
+
+								textures.push({
+									id: texture?.fileDataID,
+									filename: entry,
+									texture: base64,
+								})
+							}
+						}
+
+						modelList[fileDataID] = {
+							filename: entry,
+							bones: m2.bones,
+							vertices: m2.vertices,
+							normals: m2.normals,
+							uv: m2.uv,
+							uv2: m2.uv2,
+							boneWeights: m2.boneWeights,
+							boneIndices: m2.boneIndices,
+							colors: m2.colors,
+							textures: textures,
+							textureTypes: m2.textureTypes,
+							textureWeights: m2.textureWeights,
+							textureTransforms: m2.textureTransforms,
+							replaceableTextureLookup: m2.replaceableTextureLookup,
+							materials: m2.materials,
+							textureCombos: m2.textureCombos,
+							transparencyLookup: m2.transparencyLookup,
+							textureTransformsLookup: m2.textureTransformsLookup,
+							attachments: m2.attachments,
+							skins: skins,
+							animations: m2.animations,
+						}
+					}
+				}
+			}
+			modelData = modelList
+
+			const textureList = []
+			for (const textureID of materials) {
+				
+				const fileDataID = DBTextureFileData.getTextureFileDataID(textureID);
+				console.log('material texture id', textureID, fileDataID)
+				let entry = listfile.getByID(fileDataID);
+				
+				const file = await core.view.casc.getFile(fileDataID);
+				let tex = new BLPFile(file)
+				let png = tex.toPNG();
+				let base64 = png.toBase64();
+				if (entry !== undefined) {
+					if (core.view.config.listfileShowFileDataIDs)
+						entry += ' [' + fileDataID + ']';
+		
+						textureList.push({
+							id: fileDataID,
+							filename: entry,
+							texture: base64,
+						}) 
+				}
+			}
+			textureData = textureList
 		}
 
 		items.push(Object.freeze(new Item(itemID, itemRow, itemAppearanceRow, materials, models)));
+
+		itemExport = new Item(itemID, itemRow, itemAppearanceRow, materials, models);
+
+		let itemJSON = {
+			id: itemExport.id,
+			name: itemExport.name,
+			inventoryType: itemExport.inventoryType,
+			quality: itemExport.quality,
+			icon: itemExport.icon,
+			models: modelData,
+			displayInfo: displayInfo,
+			itemLevel: itemRow.ItemLevel,
+			textures: textureData,
+		}
+
+		console.log(itemJSON)
+
+		fs.writeFileSync(`C:\\Users\\cozze\\Downloads\\wow.export-0.1.54\\out\\${itemID}.json`, JSON.stringify(itemJSON, null, '  '), err => {
+			if (err) console.error(err)
+		})
+
+		exportItems.push({ ...itemExport, modelData: modelData, textureData: textureData });
 	}
+
+	console.log(exportItems)
 
 	// Show the item viewer screen.
 	core.view.loadPct = -1;

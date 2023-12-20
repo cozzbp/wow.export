@@ -136,11 +136,14 @@ const previewModel = async (fileName) => {
 
 		const fileDataID = listfile.getByFilename(fileName);
 		const file = await core.view.casc.getFile(fileDataID);
+
+		console.log(fileName, fileDataID)
 		let isM2 = false;
 
 		const fileNameLower = fileName.toLowerCase();
 		if (fileNameLower.endsWith('.m2')) {
 			core.view.modelViewerActiveType = 'm2';
+			console.log(file, renderGroup)
 			activeRenderer = new M2Renderer(file, renderGroup, true);
 			isM2 = true;
 		} else if (fileNameLower.endsWith('.wmo')) {

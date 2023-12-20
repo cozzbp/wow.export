@@ -57,7 +57,7 @@ class M2Loader {
 			const chunkID = this.data.readUInt32LE();
 			const chunkSize = this.data.readUInt32LE();
 			const nextChunkPos = this.data.offset + chunkSize;
-	
+
 			switch (chunkID) {
 				case constants.MAGIC.MD21: await this.parseChunk_MD21(); break;
 				case CHUNK_SFID: this.parseChunk_SFID(chunkSize); break;
@@ -66,11 +66,11 @@ class M2Loader {
 				case CHUNK_BFID: this.parseChunk_BFID(chunkSize); break;
 				case CHUNK_AFID: this.parseChunk_AFID(chunkSize); break;
 			}
-	
+
 			// Ensure that we start at the next chunk exactly.
 			this.data.seek(nextChunkPos);
 		}
-
+		console.log('loaded m2', this)
 		this.isLoaded = true;
 	}
 
@@ -166,7 +166,7 @@ class M2Loader {
 		const magic = this.data.readUInt32LE();
 		if (magic !== constants.MAGIC.MD20)
 			throw new Error('Invalid M2 magic: ' + magic);
-	
+
 		this.version = this.data.readUInt32LE();
 		this.parseChunk_MD21_modelName(ofs);
 		this.data.move(4 + 8 + 8 + 8); // flags, loops, seq
@@ -186,6 +186,8 @@ class M2Loader {
 		this.parseChunk_MD21_transparencyLookup(ofs);
 		this.parseChunk_MD21_textureTransformLookup(ofs);
 		this.parseChunk_MD21_collision(ofs);
+		this.parseChunk_MD21_attachments(ofs);
+		console.log('offset', ofs)
 	}
 
 	/**
@@ -327,7 +329,7 @@ class M2Loader {
 
 		this.data.seek(base);
 	}
-	
+
 	/**
 	 * Parse material meta-data from an MD21 chunk.
 	 * @param {number} ofs 
@@ -345,7 +347,44 @@ class M2Loader {
 
 		this.data.seek(base);
 	}
-	
+	/**
+	 * Parse attachment meta-data from an MD21 chunk.
+	 * @param {number} ofs 
+	 */
+	parseChunk_MD21_attachments(ofs) {
+		const attachmentCount = this.data.readUInt32LE();
+		const attachmentOfs = this.data.readUInt32LE();
+
+		const base = this.data.offset;
+		this.data.seek(attachmentOfs + ofs);
+
+		this.attachments = new Array(attachmentCount);
+		for (let i = 0; i < attachmentCount; i++) {
+			this.attachments[i] = {
+				id: this.data.readUInt32LE(),
+				bone: this.data.readUInt16LE(),
+				unknown: this.data.readUInt16LE(),
+				position: [this.data.readFloatLE(), this.data.readFloatLE() * -1, this.data.readFloatLE()],
+				animate_attached: {
+					interpolation_type: this.data.readUInt16LE(),
+					global_sequence: this.data.readUInt16LE(),
+					
+				},
+			};
+
+			//this is assuming animate_attached is empty, could have issues
+			this.data.readUInt32LE();
+			this.data.readUInt32LE();
+			this.data.readUInt32LE();
+			this.data.readUInt32LE();
+		}
+			
+
+			
+
+		this.data.seek(base);
+	}
+
 	/**
 	 * Parse the model name from an MD21 chunk.
 	 * @param {number} ofs 
@@ -382,23 +421,23 @@ class M2Loader {
 		const uv2 = this.uv2 = new Array(verticesCount * 2);
 		const boneWeights = this.boneWeights = Array(verticesCount * 4);
 		const boneIndices = this.boneIndices = Array(verticesCount * 4);
-	
+
 		for (let i = 0; i < verticesCount; i++) {
 			const index = i * 3;
 			vertices[index] = this.data.readFloatLE();
 			vertices[index + 2] = this.data.readFloatLE() * -1;
 			vertices[index + 1] = this.data.readFloatLE();
-	
+
 			for (let x = 0; x < 4; x++)
 				boneWeights[index + x] = this.data.readUInt8();
 
 			for (let x = 0; x < 4; x++)
 				boneIndices[index + x] = this.data.readUInt8();
-	
+
 			normals[index] = this.data.readFloatLE();
 			normals[index + 2] = this.data.readFloatLE() * -1;
 			normals[index + 1] = this.data.readFloatLE();
-	
+
 			const uvIndex = i * 2;
 			uv[uvIndex] = this.data.readFloatLE();
 			uv[uvIndex + 1] = (this.data.readFloatLE() - 1) * -1;

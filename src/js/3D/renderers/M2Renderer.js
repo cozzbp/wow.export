@@ -156,6 +156,7 @@ class M2Renderer {
 	 * @param {number} fileDataID 
 	 */
 	async overrideTextureType(type, fileDataID) {
+		console.log('override', type, fileDataID)
 		const textureTypes = this.m2.textureTypes;
 		const renderWireframe = core.view.config.modelViewerWireframe;
 
@@ -208,6 +209,8 @@ class M2Renderer {
 			const texture = textures[i];
 
 			const ribbonSlot = this.useRibbon ? textureRibbon.addSlot() : null;
+
+			console.log('modelTex', texture.fileDataID)
 
 			if (texture.fileDataID > 0) {
 				const tex = new THREE.Texture();
