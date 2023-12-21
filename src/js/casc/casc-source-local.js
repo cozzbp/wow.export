@@ -59,8 +59,8 @@ class CASCLocal extends CASC {
 	 * @param {string} [contentKey=null]
 	 */
 	async getFile(fileDataID, partialDecryption = false, suppressLog = false, supportFallback = true, forceFallback = false, contentKey = null) {
-		if (!suppressLog)
-			log.write('Loading local CASC file %d (%s)', fileDataID, listfile.getByID(fileDataID));
+		//if (!suppressLog)
+			//log.write('Loading local CASC file %d (%s)', fileDataID, listfile.getByID(fileDataID));
 			
 		const encodingKey = contentKey !== null ? super.getEncodingKeyForContentKey(contentKey) : await super.getFile(fileDataID);
 		const data = supportFallback ? await this.getDataFileWithRemoteFallback(encodingKey, forceFallback) : await this.getDataFile(encodingKey);

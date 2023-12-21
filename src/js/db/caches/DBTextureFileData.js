@@ -18,6 +18,12 @@ const initializeTextureFileData = async () => {
 	const textureFileData = new WDCReader('DBFilesClient/TextureFileData.db2');
 	await textureFileData.parse();
 
+	const ComponentTextureFileData = new WDCReader('DBFilesClient/ComponentTextureFileData.db2');
+	await ComponentTextureFileData.parse();
+
+	console.log('textureFileData', textureFileData)
+
+	console.log('ComponentTextureFileData', ComponentTextureFileData)
 	// Using the texture mapping, map all model fileDataIDs to used textures.
 	for (const [textureFileDataID, textureFileDataRow] of textureFileData.getAllRows()) {
 		// Keep a list of all FIDs for listfile unknowns.
@@ -25,8 +31,13 @@ const initializeTextureFileData = async () => {
 
 		// TODO: Need to remap this to support other UsageTypes
 		if (textureFileDataRow.UsageType !== 0)
+		{
+			console.log('usage type!', textureFileDataRow)
 			continue;
+		}
+			
 
+		
 		matResIDToFileDataID.set(textureFileDataRow.MaterialResourcesID, textureFileDataID);
 	}
 	log.write('Loaded texture mapping for %d materials', matResIDToFileDataID.size);

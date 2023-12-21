@@ -123,6 +123,7 @@ class M2Renderer {
 
 		if (this.reactive) {
 			core.view.modelViewerGeosets = this.geosetArray;
+			console.log('geoarray', this.geosetArray)
 			GeosetMapper.map(this.geosetArray);
 		}
 

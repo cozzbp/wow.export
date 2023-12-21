@@ -6,7 +6,10 @@
 
 const Texture = require('../Texture');
 const Skin = require('../Skin');
+const GeosetMapper = require('../GeosetMapper');
 const constants = require('../../constants');
+
+var _ = require('lodash');
 
 const CHUNK_SFID = 0x44494653;
 const CHUNK_TXID = 0x44495854;
@@ -70,7 +73,26 @@ class M2Loader {
 			// Ensure that we start at the next chunk exactly.
 			this.data.seek(nextChunkPos);
 		}
-		console.log('loaded m2', this)
+		
+		let m2copy = _.cloneDeep(this)
+		m2copy = _.omit(m2copy, ['data', 'skins', 'boundingBox', 'boundingSphereRadius', 'collisionBox', 'collisionSphereRadius', 'collisionIndices', 'collisionPositions', 'collisionNormals'])
+		m2copy.bones = _.map(m2copy.bones, (bone) => ({
+			..._.omit(bone, ['translation', 'rotation', 'scale'])
+		}))
+
+		
+		
+		//
+		
+
+		m2copy.skin = await this.getSkin(0)
+
+		for (let i = 0; i < m2copy?.skin?.subMeshes?.length; i++) {
+			m2copy.skin.subMeshes[i].geosetName = GeosetMapper.getGeosetName(i, m2copy.skin.subMeshes[i].submeshID)
+		}
+
+		console.log('loaded m2', m2copy)
+
 		this.isLoaded = true;
 	}
 
@@ -155,6 +177,7 @@ class M2Loader {
 				fileDataID: this.data.readUInt32LE()
 			};
 		}
+		console.log('anim entries', entries)
 	}
 
 	/**
@@ -169,7 +192,7 @@ class M2Loader {
 
 		this.version = this.data.readUInt32LE();
 		this.parseChunk_MD21_modelName(ofs);
-		this.data.move(4 + 8 + 8 + 8); // flags, loops, seq
+		this.data.move(/* flags */4  + /*global_loops*/8 + /*sequences*/8 + /*sequenceIdxHashById*/8); // flags, loops, seq
 		this.parseChunk_MD21_bones(ofs);
 		this.data.move(8);
 		this.parseChunk_MD21_vertices(ofs);
@@ -187,7 +210,7 @@ class M2Loader {
 		this.parseChunk_MD21_textureTransformLookup(ofs);
 		this.parseChunk_MD21_collision(ofs);
 		this.parseChunk_MD21_attachments(ofs);
-		console.log('offset', ofs)
+		//console.log('offset', ofs)
 	}
 
 	/**
@@ -428,11 +451,12 @@ class M2Loader {
 			vertices[index + 2] = this.data.readFloatLE() * -1;
 			vertices[index + 1] = this.data.readFloatLE();
 
+			const boneIndex = i * 4
 			for (let x = 0; x < 4; x++)
-				boneWeights[index + x] = this.data.readUInt8();
+				boneWeights[boneIndex + x] = this.data.readUInt8();
 
 			for (let x = 0; x < 4; x++)
-				boneIndices[index + x] = this.data.readUInt8();
+				boneIndices[boneIndex + x] = this.data.readUInt8();
 
 			normals[index] = this.data.readFloatLE();
 			normals[index + 2] = this.data.readFloatLE() * -1;

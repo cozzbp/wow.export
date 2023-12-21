@@ -15,6 +15,7 @@ const InstallManifest = require('./install-manifest');
 const WDCReader = require('../db/WDCReader');
 const DBModelFileData = require('../db/caches/DBModelFileData');
 const DBTextureFileData = require('../db/caches/DBTextureFileData');
+const DBComponentTextureFileData = require('../db/caches/DBComponentTextureFileData');
 const DBItemDisplays = require('../db/caches/DBItemDisplays');
 const DBCreatures = require('../db/caches/DBCreatures');
 
@@ -207,6 +208,9 @@ class CASC {
 
 		await this.progress.step('Loading texture file data');
 		await DBTextureFileData.initializeTextureFileData();
+
+		await this.progress.step('Loading component texture file data');
+		await DBComponentTextureFileData.initializeComponentTextureFileData();
 
 		// Once the above two tables have loaded, ingest fileDataIDs as
 		// unknown entries to the listfile.

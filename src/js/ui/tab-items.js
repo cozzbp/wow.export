@@ -183,12 +183,23 @@ core.events.once('screen-tab-items', async () => {
 	const exportItems = [];
 
 	const appearanceMap = new Map();
-	for (const row of itemModifiedAppearance.getAllRows().values())
+	for (const row of itemModifiedAppearance.getAllRows().values()) {
 		appearanceMap.set(row.ItemID, row.ItemAppearanceID);
+		if (row.ItemID === 6324) {
+			console.log('arugal: ', row)
+		}
+	}
 
 	const materialMap = new MultiMap();
-	for (const row of itemDisplayInfoMaterialRes.getAllRows().values())
+	const materialDataMap = new MultiMap();
+	for (const row of itemDisplayInfoMaterialRes.getAllRows().values()) {
+		if (row.ItemDisplayInfoID === 11528) {
+			console.log('arugal itemDisplayInfoMaterialRes', row)
+		}
 		materialMap.set(row.ItemDisplayInfoID, row.MaterialResourcesID);
+		materialDataMap.set(row.ItemDisplayInfoID, row)
+	}
+
 
 	for (const [itemID, itemRow] of rows) {
 		if (ITEM_SLOTS_IGNORED.includes(itemRow.inventoryType))
@@ -196,6 +207,10 @@ core.events.once('screen-tab-items', async () => {
 
 		const itemAppearanceID = appearanceMap.get(itemID);
 		const itemAppearanceRow = itemAppearance.getRow(itemAppearanceID);
+
+		if (itemID === 6324) {
+			console.log('arugal itemAppearanceRow: ', itemAppearanceRow)
+		}
 
 		let materials = null;
 		let models = null;
@@ -207,6 +222,9 @@ core.events.once('screen-tab-items', async () => {
 			models = [];
 
 			const itemDisplayInfoRow = itemDisplayInfo.getRow(itemAppearanceRow.ItemDisplayInfoID);
+			if (itemID === 6324) {
+				console.log('arugal itemDisplayInfoRow: ', itemDisplayInfoRow)
+			}
 			if (itemDisplayInfoRow !== null) {
 				materials.push(...itemDisplayInfoRow.ModelMaterialResourcesID);
 				models.push(...itemDisplayInfoRow.ModelResourcesID);
@@ -214,6 +232,10 @@ core.events.once('screen-tab-items', async () => {
 			}
 
 			const materialRes = materialMap.get(itemAppearanceRow.ItemDisplayInfoID);
+			let materialData = materialDataMap.get(itemAppearanceRow.ItemDisplayInfoID)
+			if (itemID === 6324) {
+				console.log('arugal materialRes: ', materialRes)
+			}
 			if (materialRes !== undefined)
 				Array.isArray(materialRes) ? materials.push(...materialRes) : materials.push(materialRes);
 
@@ -241,14 +263,14 @@ core.events.once('screen-tab-items', async () => {
 							skins.push(skin)
 						}
 
-						console.log('skins', skins)
+						//console.log('skins', skins)
 
 						//need to parse out textures here
 
 						let textures = []
 						for (let i = 0; i < m2.textures.length; i++) {
 							const texture = m2.textures[i]
-							if(!texture?.fileDataID) continue
+							if (!texture?.fileDataID) continue
 							let entry = listfile.getByID(texture.fileDataID);
 
 							const file = await core.view.casc.getFile(texture.fileDataID);
@@ -296,27 +318,74 @@ core.events.once('screen-tab-items', async () => {
 			modelData = modelList
 
 			const textureList = []
+
+			
+
+			//console.log(materials, materialData, materialDataMap)
+
+			if (materialData && !Array.isArray(materialData)) materialData = [materialData]
 			for (const textureID of materials) {
-				
+				let ComponentSection
+				materialData?.forEach(mat => {
+					if (mat.MaterialResourcesID === textureID)
+						ComponentSection = mat.ComponentSection
+				})
+				//const mat = materialDataMap[textureID]
+				//console.log(textureID, materialData)
+
+
 				const fileDataID = DBTextureFileData.getTextureFileDataID(textureID);
-				console.log('material texture id', textureID, fileDataID)
+
+				if (itemID === 6324) {
+					console.log('arugal textureID: ', textureID, fileDataID)
+				}
+
+				//console.log('material texture id', textureID, fileDataID)
 				let entry = listfile.getByID(fileDataID);
-				
-				const file = await core.view.casc.getFile(fileDataID);
+
+
+
+				//const file = await core.view.casc.getFile(fileDataID);
+				const file = await core.view.casc.getFileByName(entry)
 				let tex = new BLPFile(file)
 				let png = tex.toPNG();
 				let base64 = png.toBase64();
-				if (entry !== undefined) {
-					if (core.view.config.listfileShowFileDataIDs)
-						entry += ' [' + fileDataID + ']';
-		
+				textureList.push({
+					id: fileDataID,
+					gender: entry.endsWith('_m.blp') ? 'MALE' : undefined,
+					ComponentSection: ComponentSection,
+					filename: entry,
+					texture: base64,
+				})
+
+				if (entry.endsWith('_m.blp')) {
+					const femaleFilename = entry.replace('_m.blp', '_f.blp')
+					const femaleID = listfile.getByFilename(femaleFilename)
+					if (itemID === 6324) {
+						console.log('arugal female id', femaleID)
+					}
+					if (femaleID) {
+						const file = await core.view.casc.getFileByName(femaleFilename)
+						let tex = new BLPFile(file)
+						let png = tex.toPNG();
+						let base64 = png.toBase64();
+
+						if (itemID === 6324) {
+							console.log('arugal file id', file)
+						}
 						textureList.push({
-							id: fileDataID,
-							filename: entry,
+							id: femaleID,
+							gender: 'FEMALE',
+							ComponentSection: ComponentSection,
+							filename: femaleFilename,
 							texture: base64,
-						}) 
+						})
+					}
+
 				}
 			}
+
+
 			textureData = textureList
 		}
 
@@ -336,16 +405,20 @@ core.events.once('screen-tab-items', async () => {
 			textures: textureData,
 		}
 
-		console.log(itemJSON)
+		if (itemID === 6324) {
+			console.log('arugal json', itemJSON)
+		}
+		//console.log(itemJSON)
 
-		fs.writeFileSync(`C:\\Users\\cozze\\Downloads\\wow.export-0.1.54\\out\\${itemID}.json`, JSON.stringify(itemJSON, null, '  '), err => {
-			if (err) console.error(err)
-		})
+		if (itemJSON?.displayInfo)
+			fs.writeFileSync(`C:\\Users\\cozze\\Downloads\\wow.export-0.1.54\\out\\${itemID}.json`, JSON.stringify(itemJSON, null, '  '), err => {
+				if (err) console.error(err)
+			})
 
 		exportItems.push({ ...itemExport, modelData: modelData, textureData: textureData });
 	}
 
-	console.log(exportItems)
+	//console.log(exportItems)
 
 	// Show the item viewer screen.
 	core.view.loadPct = -1;

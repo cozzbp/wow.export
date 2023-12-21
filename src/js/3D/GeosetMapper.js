@@ -52,6 +52,7 @@ const GEOSET_GROUPS = {
  * @param {number} id 
  */
 const getGeosetName = (index, id) => {
+	//console.log('getGeosetName', index, id)
 	if (id === 0)
 		return 'Geoset' + index;
 
