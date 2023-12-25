@@ -167,6 +167,11 @@ core.events.once('screen-tab-items', async () => {
 	const itemDisplayInfoMaterialRes = new WDCReader('DBFilesClient/ItemDisplayInfoMaterialRes.db2');
 	await itemDisplayInfoMaterialRes.parse();
 
+	await progress.step('Loading item helmet geoset vis...');
+	const HelmetGeosetData = new WDCReader('DBFilesClient/HelmetGeosetData.db2');
+	await HelmetGeosetData.parse();
+
+	console.log('HelmetGeosetData', HelmetGeosetData)
 	console.log(itemDisplayInfoMaterialRes)
 
 	const itemAppearance = new WDCReader('DBFilesClient/ItemAppearance.db2');
@@ -185,16 +190,16 @@ core.events.once('screen-tab-items', async () => {
 	const appearanceMap = new Map();
 	for (const row of itemModifiedAppearance.getAllRows().values()) {
 		appearanceMap.set(row.ItemID, row.ItemAppearanceID);
-		if (row.ItemID === 6324) {
-			console.log('arugal: ', row)
+		if (row.ItemID === 22428) {
+			console.log('redemption: ', row)
 		}
 	}
 
 	const materialMap = new MultiMap();
 	const materialDataMap = new MultiMap();
 	for (const row of itemDisplayInfoMaterialRes.getAllRows().values()) {
-		if (row.ItemDisplayInfoID === 11528) {
-			console.log('arugal itemDisplayInfoMaterialRes', row)
+		if (row.ItemDisplayInfoID === 36972) {
+			console.log('redemption itemDisplayInfoMaterialRes', row)
 		}
 		materialMap.set(row.ItemDisplayInfoID, row.MaterialResourcesID);
 		materialDataMap.set(row.ItemDisplayInfoID, row)
@@ -208,8 +213,8 @@ core.events.once('screen-tab-items', async () => {
 		const itemAppearanceID = appearanceMap.get(itemID);
 		const itemAppearanceRow = itemAppearance.getRow(itemAppearanceID);
 
-		if (itemID === 6324) {
-			console.log('arugal itemAppearanceRow: ', itemAppearanceRow)
+		if (itemID === 22428) {
+			console.log('redemption itemAppearanceRow: ', itemAppearanceRow)
 		}
 
 		let materials = null;
@@ -222,8 +227,8 @@ core.events.once('screen-tab-items', async () => {
 			models = [];
 
 			const itemDisplayInfoRow = itemDisplayInfo.getRow(itemAppearanceRow.ItemDisplayInfoID);
-			if (itemID === 6324) {
-				console.log('arugal itemDisplayInfoRow: ', itemDisplayInfoRow)
+			if (itemID === 22428) {
+				console.log('redemption itemDisplayInfoRow: ', itemDisplayInfoRow)
 			}
 			if (itemDisplayInfoRow !== null) {
 				materials.push(...itemDisplayInfoRow.ModelMaterialResourcesID);
@@ -233,8 +238,8 @@ core.events.once('screen-tab-items', async () => {
 
 			const materialRes = materialMap.get(itemAppearanceRow.ItemDisplayInfoID);
 			let materialData = materialDataMap.get(itemAppearanceRow.ItemDisplayInfoID)
-			if (itemID === 6324) {
-				console.log('arugal materialRes: ', materialRes)
+			if (itemID === 22428) {
+				console.log('redemption materialRes: ', materialRes)
 			}
 			if (materialRes !== undefined)
 				Array.isArray(materialRes) ? materials.push(...materialRes) : materials.push(materialRes);
@@ -251,6 +256,9 @@ core.events.once('screen-tab-items', async () => {
 
 					const file = await core.view.casc.getFile(fileDataID);
 					let m2 = new M2Loader(file);
+					if (itemID === 22428) {
+						console.log('redemption m2: ', m2)
+					}
 					await m2.load();
 					if (entry !== undefined) {
 						if (core.view.config.listfileShowFileDataIDs)
@@ -270,7 +278,13 @@ core.events.once('screen-tab-items', async () => {
 						let textures = []
 						for (let i = 0; i < m2.textures.length; i++) {
 							const texture = m2.textures[i]
-							if (!texture?.fileDataID) continue
+							if (!texture?.fileDataID) {
+								textures.push({
+									id: texture?.fileDataID,
+									flags: texture?.flags,
+								})
+								continue
+							}
 							let entry = listfile.getByID(texture.fileDataID);
 
 							const file = await core.view.casc.getFile(texture.fileDataID);
@@ -285,6 +299,7 @@ core.events.once('screen-tab-items', async () => {
 									id: texture?.fileDataID,
 									filename: entry,
 									texture: base64,
+									flags: texture?.flags,
 								})
 							}
 						}
@@ -336,8 +351,8 @@ core.events.once('screen-tab-items', async () => {
 
 				const fileDataID = DBTextureFileData.getTextureFileDataID(textureID);
 
-				if (itemID === 6324) {
-					console.log('arugal textureID: ', textureID, fileDataID)
+				if (itemID === 22428) {
+					console.log('redemption textureID: ', textureID, fileDataID)
 				}
 
 				//console.log('material texture id', textureID, fileDataID)
@@ -361,8 +376,8 @@ core.events.once('screen-tab-items', async () => {
 				if (entry.endsWith('_m.blp')) {
 					const femaleFilename = entry.replace('_m.blp', '_f.blp')
 					const femaleID = listfile.getByFilename(femaleFilename)
-					if (itemID === 6324) {
-						console.log('arugal female id', femaleID)
+					if (itemID === 22428) {
+						console.log('redemption female id', femaleID)
 					}
 					if (femaleID) {
 						const file = await core.view.casc.getFileByName(femaleFilename)
@@ -370,8 +385,8 @@ core.events.once('screen-tab-items', async () => {
 						let png = tex.toPNG();
 						let base64 = png.toBase64();
 
-						if (itemID === 6324) {
-							console.log('arugal file id', file)
+						if (itemID === 22428) {
+							console.log('redemption file id', file)
 						}
 						textureList.push({
 							id: femaleID,
@@ -405,13 +420,13 @@ core.events.once('screen-tab-items', async () => {
 			textures: textureData,
 		}
 
-		if (itemID === 6324) {
-			console.log('arugal json', itemJSON)
+		if (itemID === 22428) {
+			console.log('redemption json', itemJSON)
 		}
 		//console.log(itemJSON)
 
 		if (itemJSON?.displayInfo)
-			fs.writeFileSync(`C:\\Users\\cozze\\Downloads\\wow.export-0.1.54\\out\\${itemID}.json`, JSON.stringify(itemJSON, null, '  '), err => {
+			fs.writeFileSync(`C:\\Users\\cozze\\Downloads\\wow.export-0.1.54\\out\\${itemID}.json`, JSON.stringify(itemJSON), err => {
 				if (err) console.error(err)
 			})
 

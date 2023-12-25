@@ -76,9 +76,9 @@ class M2Loader {
 		
 		let m2copy = _.cloneDeep(this)
 		m2copy = _.omit(m2copy, ['data', 'skins', 'boundingBox', 'boundingSphereRadius', 'collisionBox', 'collisionSphereRadius', 'collisionIndices', 'collisionPositions', 'collisionNormals'])
-		m2copy.bones = _.map(m2copy.bones, (bone) => ({
+		/* m2copy.bones = _.map(m2copy.bones, (bone) => ({
 			..._.omit(bone, ['translation', 'rotation', 'scale'])
-		}))
+		})) */
 
 		
 		
@@ -91,7 +91,7 @@ class M2Loader {
 			m2copy.skin.subMeshes[i].geosetName = GeosetMapper.getGeosetName(i, m2copy.skin.subMeshes[i].submeshID)
 		}
 
-		console.log('loaded m2', m2copy)
+		//console.log('loaded m2', m2copy)
 
 		this.isLoaded = true;
 	}
@@ -177,7 +177,7 @@ class M2Loader {
 				fileDataID: this.data.readUInt32LE()
 			};
 		}
-		console.log('anim entries', entries)
+		//console.log('anim entries', entries)
 	}
 
 	/**
@@ -192,7 +192,10 @@ class M2Loader {
 
 		this.version = this.data.readUInt32LE();
 		this.parseChunk_MD21_modelName(ofs);
-		this.data.move(/* flags */4  + /*global_loops*/8 + /*sequences*/8 + /*sequenceIdxHashById*/8); // flags, loops, seq
+		//this.data.move(/* flags */4  + /*global_loops*/8 + /*sequences*/8 + /*sequenceIdxHashById*/8); // flags, loops, seq
+		this.data.move(4 + 8)
+		this.parseChunk_MD21_animations(ofs);
+		this.data.move(8)
 		this.parseChunk_MD21_bones(ofs);
 		this.data.move(8);
 		this.parseChunk_MD21_vertices(ofs);
@@ -258,6 +261,45 @@ class M2Loader {
 		return new M2Track(globalSeq, interpolation, timestamps, values);
 	}
 
+	parseChunk_MD21_animations(ofs) {
+		const data = this.data;
+		const sequenceCount = data.readUInt32LE();
+		const sequenceOfs = data.readUInt32LE();
+
+		const base = data.offset;
+		data.seek(sequenceOfs + ofs);
+
+		this.md21Ofs = ofs;
+
+		const animations = this.animations = Array(sequenceCount);
+		for (let i = 0; i < sequenceCount; i++) {
+			animations[i] = {
+				id: data.readUInt16LE(),
+				variationIndex: data.readUInt16LE(),
+				duration: data.readUInt32LE(),
+				movespeed: data.readFloatLE(),
+				flags: data.readUInt32LE(),
+				frequency: data.readInt16LE(),
+				padding: data.readUInt16LE(),
+				replay: {
+					minimum: data.readUInt32LE(),
+					maximum: data.readUInt32LE(),
+				},
+				blendTimeIn: data.readUInt16LE(),
+				blendTimeOut: data.readUInt16LE(),
+				bounds: {
+					extent: this.readCAaBox(),
+					radius: data.readFloatLE(),
+				},
+				variationNext: data.readInt16LE(),
+				aliasNext: data.readUInt16LE(),
+			};
+			//console.log('animation', i, animations[i])
+		}
+
+		data.seek(base);
+	}
+
 	parseChunk_MD21_bones(ofs) {
 		const data = this.data;
 		const boneCount = data.readUInt32LE();
@@ -277,7 +319,7 @@ class M2Loader {
 				subMeshID: data.readUInt16LE(),
 				boneNameCRC: data.readUInt32LE(),
 				translation: this.readM2Track(() => data.readFloatLE(3)),
-				rotation: this.readM2Track(() => data.readUInt16LE(4).map(e => (e / 65565) - 1)),
+				rotation: this.readM2Track(() => data.readInt16LE(4).map(e => e < 0 ? ((e + 32768.0) / 32767.0) : (e - 32767.0)/32767.0)),
 				scale: this.readM2Track(() => data.readFloatLE(3)),
 				pivot: data.readFloatLE(3)
 			};
