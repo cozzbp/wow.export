@@ -146,6 +146,16 @@ core.events.once('screen-tab-items', async () => {
 	core.view.isBusy++;
 
 	await progress.step('Loading item data...');
+	const itemdb2 = new WDCReader('DBFilesClient/Item.db2');
+	await itemdb2.parse();
+
+	console.log('itemdb2', itemdb2)
+
+	fs.writeFileSync(`C:\\Users\\cozze\\Downloads\\wow.export-0.1.54\\out\\itemdb2.json`, JSON.stringify(itemdb2), err => {
+		if (err) console.error(err)
+	})
+
+	await progress.step('Loading item data...');
 	const itemSparse = new WDCReader('DBFilesClient/ItemSparse.db2');
 	await itemSparse.parse();
 
@@ -425,10 +435,13 @@ core.events.once('screen-tab-items', async () => {
 		}
 		//console.log(itemJSON)
 
-		if (itemJSON?.displayInfo)
+		if (!itemJSON?.displayInfo && itemJSON?.inventoryType)
+		{
 			fs.writeFileSync(`C:\\Users\\cozze\\Downloads\\wow.export-0.1.54\\out\\${itemID}.json`, JSON.stringify(itemJSON), err => {
 				if (err) console.error(err)
 			})
+		}
+			
 
 		exportItems.push({ ...itemExport, modelData: modelData, textureData: textureData });
 	}
